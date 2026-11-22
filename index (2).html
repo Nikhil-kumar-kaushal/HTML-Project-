@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E-Grievance Portal</title>
+<style>
+  body { margin:0; font-family:Arial, sans-serif; background:#eef4ff; color:#1f2a44; }
+  header { background:#1d4ed8; color:#fff; text-align:center; padding:18px; font-size:24px; font-weight:bold; }
+  nav { background:#fff; display:flex; justify-content:center; gap:10px; padding:10px; border-bottom:1px solid #cbd9f5; }
+  nav button { background:#fff; color:#1d4ed8; border:1px solid #1d4ed8; padding:8px 16px; border-radius:6px; cursor:pointer; font-size:15px; }
+  nav button.active { background:#1d4ed8; color:#fff; }
+  main { max-width:1400px; margin:0 auto; padding:20px 30px; }
+  .box { background:#fff; border:1px solid #cbd9f5; border-radius:8px; padding:16px; margin-bottom:16px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:stretch; }
+  .two .box { margin:0; }
+  .right { display:grid; grid-template-rows:1fr 1fr; gap:16px; }
+  .right .box { display:flex; flex-direction:column; justify-content:center; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px; }
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .stats.three { grid-template-columns:repeat(3, 1fr); }
+  .stat { background:#eef4ff; border-radius:6px; padding:20px 10px; text-align:center; }
+  .stat b { display:block; font-size:32px; color:#1d4ed8; }
+  input, select, textarea { width:100%; padding:9px; margin-bottom:10px; border:1px solid #b6c6e8; border-radius:6px; font-size:15px; font-family:inherit; box-sizing:border-box; }
+  .submit { width:100%; background:#1d4ed8; color:#fff; border:0; padding:11px; border-radius:6px; font-size:16px; cursor:pointer; }
+  .card { border:1px solid #cbd9f5; border-radius:8px; padding:12px; background:#fff; }
+  .card select { width:auto; margin:0; padding:6px; }
+  .small { color:#5b6b8f; font-size:13px; }
+  .remove { background:#fff; color:#b91c1c; border:1px solid #b91c1c; border-radius:6px; padding:6px 10px; cursor:pointer; }
+  .tag { font-size:12px; padding:2px 8px; border-radius:10px; color:#fff; }
+  .High { background:#dc2626; } .Medium { background:#d97706; } .Low { background:#16a34a; }
+  #msg { margin:10px 0 0; font-weight:bold; }
+  .ok { color:#15803d; } .error { color:#b91c1c; }
+  @media (max-width:700px) { .two { grid-template-columns:1fr; } .stats { grid-template-columns:repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>E-Grievance Redressal Portal</header>
+
+<nav>
+  <button id="b-home" onclick="showTab('home')">Home</button>
+  <button id="b-all" onclick="showTab('all')">All Grievances</button>
+  <button id="b-track" onclick="showTab('track')">Track</button>
+</nav>
+
+<main>
+
+  <div id="home">
+    <div class="two">
+      <div class="box">
+        <b>New grievance</b><br><br>
+        <input id="name" placeholder="Your name">
+        <input id="mobile" maxlength="10" placeholder="Mobile number (10 digits)">
+        <select id="category">
+          <option>Academics</option><option>Hostel</option><option>Canteen</option>
+          <option>Transport</option><option>Other</option>
+        </select>
+        <select id="priority">
+          <option value="Low">Low - can wait</option>
+          <option value="Medium">Medium - within a week</option>
+          <option value="High">High - urgent, within a day</option>
+        </select>
+        <textarea id="text" rows="4" placeholder="Describe the problem"></textarea>
+        <button class="submit" onclick="submitForm()">Submit</button>
+        <p id="msg"></p>
+      </div>
+
+      <div class="right">
+        <div class="box">
+          <b>Summary</b><br><br>
+          <div class="stats">
+            <div class="stat"><b id="total">0</b>Total</div>
+            <div class="stat"><b id="pending">0</b>Pending</div>
+            <div class="stat"><b id="progress">0</b>In progress</div>
+            <div class="stat"><b id="resolved">0</b>Resolved</div>
+          </div>
+        </div>
+        <div class="box">
+          <b>Open by priority</b><br><br>
+          <div class="stats three">
+            <div class="stat"><b id="high">0</b>High</div>
+            <div class="stat"><b id="medium">0</b>Medium</div>
+            <div class="stat"><b id="low">0</b>Low</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="all" style="display:none">
+    <div class="box">
+      <input id="search" placeholder="Search by name, mobile or text" oninput="render()">
+      <select id="filterCategory" onchange="render()">
+        <option value="">All categories</option>
+        <option>Academics</option><option>Hostel</option><option>Canteen</option>
+        <option>Transport</option><option>Other</option>
+      </select>
+      <select id="filterStatus" onchange="render()">
+        <option value="">All statuses</option>
+        <option>Pending</option><option>In progress</option><option>Resolved</option>
+      </select>
+      <div id="list" class="cards"></div>
+    </div>
+  </div>
+
+  <div id="track" style="display:none">
+    <div class="box">
+      <input id="trackMobile" maxlength="10" placeholder="Enter your mobile number" oninput="render()">
+      <div id="mine" class="cards"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// all grievances are kept in this list and saved in the browser
+var data = JSON.parse(localStorage.getItem("grievances3") || "[]");
+var statuses = ["Pending", "In progress", "Resolved"];
+
+function get(id) {
+  return document.getElementById(id);
+}
+
+// stops typed text from breaking the page
+function clean(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// switch between Home, All Grievances and Track
+function showTab(tab) {
+  var tabs = ["home", "all", "track"];
+  for (var i = 0; i < tabs.length; i++) {
+    get(tabs[i]).style.display = (tabs[i] == tab) ? "block" : "none";
+    get("b-" + tabs[i]).className = (tabs[i] == tab) ? "active" : "";
+  }
+}
+
+// add a new grievance
+function submitForm() {
+  var name = get("name").value.trim();
+  var mobile = get("mobile").value.trim();
+  var text = get("text").value.trim();
+
+  if (name.length < 3) { return message("Name must be at least 3 letters.", "error"); }
+  if (!/^[0-9]{10}$/.test(mobile)) { return message("Mobile number must be exactly 10 digits.", "error"); }
+  if (text.length < 10) { return message("Description must be at least 10 characters.", "error"); }
+
+  data.push({
+    id: Date.now(),
+    name: name,
+    mobile: mobile,
+    category: get("category").value,
+    priority: get("priority").value,
+    text: text,
+    status: "Pending",
+    date: new Date().toLocaleDateString()
+  });
+
+  get("name").value = "";
+  get("mobile").value = "";
+  get("text").value = "";
+  message("Grievance submitted successfully.", "ok");
+  save();
+}
+
+function message(text, type) {
+  get("msg").textContent = text;
+  get("msg").className = type;
+}
+
+function changeStatus(id, newStatus) {
+  for (var i = 0; i < data.length; i++) {
+    if (data[i].id == id) { data[i].status = newStatus; }
+  }
+  save();
+}
+
+function removeItem(id) {
+  var rest = [];
+  for (var i = 0; i < data.length; i++) {
+    if (data[i].id != id) { rest.push(data[i]); }
+  }
+  data = rest;
+  save();
+}
+
+function save() {
+  localStorage.setItem("grievances3", JSON.stringify(data));
+  render();
+}
+
+// build the box for one grievance (canEdit = true on the All Grievances tab)
+function makeCard(g, canEdit) {
+  var html = '<div class="card">';
+  html += '<b>' + clean(g.name) + '</b> <span class="tag ' + g.priority + '">' + g.priority + '</span>';
+  html += '<p class="small">' + g.category + ' | ' + g.mobile + ' | ' + g.date + '</p>';
+  html += '<p>' + clean(g.text) + '</p>';
+
+  if (canEdit) {
+    html += '<select onchange="changeStatus(' + g.id + ', this.value)">';
+    for (var i = 0; i < statuses.length; i++) {
+      var selected = (statuses[i] == g.status) ? " selected" : "";
+      html += '<option' + selected + '>' + statuses[i] + '</option>';
+    }
+    html += '</select> <button class="remove" onclick="removeItem(' + g.id + ')">Remove</button>';
+  } else {
+    html += '<p>Status: <b>' + g.status + '</b></p>';
+  }
+  return html + '</div>';
+}
+
+// redraw everything on the page
+function render() {
+  var search = get("search").value.toLowerCase();
+  var fc = get("filterCategory").value;
+  var fs = get("filterStatus").value;
+  var mobile = get("trackMobile").value;
+  var listHtml = "", mineHtml = "";
+  var count = { total: 0, Pending: 0, "In progress": 0, Resolved: 0, High: 0, Medium: 0, Low: 0 };
+
+  // high priority first
+  var order = { High: 0, Medium: 1, Low: 2 };
+  data.sort(function (a, b) { return order[a.priority] - order[b.priority]; });
+
+  for (var i = 0; i < data.length; i++) {
+    var g = data[i];
+
+    count.total++;
+    count[g.status]++;
+    if (g.status != "Resolved") { count[g.priority]++; }
+
+    var words = (g.name + g.mobile + g.text).toLowerCase();
+    if (words.indexOf(search) != -1 && (fc == "" || g.category == fc) && (fs == "" || g.status == fs)) {
+      listHtml += makeCard(g, true);
+    }
+    if (mobile.length == 10 && g.mobile == mobile) {
+      mineHtml += makeCard(g, false);
+    }
+  }
+
+  get("list").innerHTML = listHtml || "No grievances found.";
+  get("mine").innerHTML = mobile.length < 10 ? "Enter your 10 digit mobile number." : (mineHtml || "No grievances found for this number.");
+
+  get("total").textContent = count.total;
+  get("pending").textContent = count.Pending;
+  get("progress").textContent = count["In progress"];
+  get("resolved").textContent = count.Resolved;
+  get("high").textContent = count.High;
+  get("medium").textContent = count.Medium;
+  get("low").textContent = count.Low;
+}
+
+showTab("home");
+render();
+</script>
+</body>
+</html>
